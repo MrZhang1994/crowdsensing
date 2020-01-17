@@ -1,8 +1,8 @@
 # Kubernetes configuration and troubleshoot note (draft)
 
-Created By: @guzhaqixin
+Created By: [@guzhaqixin](https://github.com/guzhaqixin)
 
-This doc records the [Kubernetes](https://github.com/kubernetes/kubernetes) configuration and troubleshoot process for this [project](https://github.com/MrZhang1994/crowdsensing). It is largely affected by the specific appliances used and corresponding history environment, thus YMMV. The doc by present is maintained by [guzhaqixin](https://github.com/guzhaqixin) and please refer to him if there is any problem.
+This doc records the [Kubernetes](https://github.com/kubernetes/kubernetes) configuration and troubleshoot process for this [project](https://github.com/MrZhang1994/crowdsensing). It is largely affected by the specific appliances used and corresponding history environment, thus YMMV. The doc by present is maintained by [@guzhaqixin](https://github.com/guzhaqixin) and please refer to him if there is any problem.
 
 # Environment setup
 
