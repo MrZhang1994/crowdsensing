@@ -136,9 +136,9 @@ class Env:
         for i in range(L):
             for j in range(L):
                 self.open_count[i,j] = np.sum(a[temp:temp+self.bt_count[i,j]])
-                if self.open_count[i,j] == 0 && self.car_count[i,j,t] == 0:
+                if self.open_count[i,j] == 0 and self.car_count[i,j,t] == 0:
                     self.utilization_ratio[i,j] = U_BEST
-                elif self.open_count[i,j] == 0 && self.car_count[i,j,t] != 0:
+                elif self.open_count[i,j] == 0 and self.car_count[i,j,t] != 0:
                     self.utilization_ration[i,j] = 100 # I gives a very big punishment to this situation.Need to be considered
                 else:
                     self.utilization_ratio[i,j] = self.car_count[i,j,t]/(CAPACITY*self.open_count[i,j])
@@ -166,13 +166,13 @@ for i_episode in range(400):
         puni_utilization = 0
         for i in range(L):
             for j in range(L):
-                if utilization_ratio[i,j]<=U_BEST
+                if utilization_ratio[i,j]<=U_BEST:
                     puni_utilization += PHI_1*(U_BEST-utilization_ratio[i,j])
                 else:
                     puni_utilization += PHI_2*(utilization_ratio[i,j]-U_BEST)
         puni_contentloss = 0
         for i in range(N_ACTIONS):
-            if s[i] == 1 && s_[i] == 0:
+            if s[i] == 1 and s_[i] == 0:
                 puni_contentloss += OMEGA
         r = -cost_open-puni_utilization-puni_contentloss
 
