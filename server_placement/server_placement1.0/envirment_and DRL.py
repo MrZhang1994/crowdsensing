@@ -32,9 +32,13 @@ GAMMA = 0.9                 # reward discount
 TARGET_REPLACE_ITER = 100   # target update frequency
 MEMORY_CAPACITY = 2000
 
+
+
 bt_count = np.loadtxt('bt_count.txt')
-N_ACTIONS = np.sum(bt_count)
-N_STATES = np.sum(bt_count)+L*L
+N_ACTIONS = int(np.sum(bt_count))
+N_STATES = int(np.sum(bt_count)+L*L)
+ENV_A_SHAPE = 0   # have not known what it is, just set it 0 temporarily
+
 
 # read processed car data
 f = open('dict_Car_3298_processed_2.txt','r')
@@ -131,15 +135,16 @@ class Env:
         self.bt_count = bt_count
         self.utilization_ratio = np.zeros((L,L))
         self.car_count = car_count
-    def update(self, a, t):
+    def update(self, *a, t):
         temp = 0
         for i in range(L):
             for j in range(L):
-                self.open_count[i,j] = np.sum(a[temp:temp+self.bt_count[i,j]])
-                if self.open_count[i,j] == 0 && self.car_count[i,j,t] == 0:
+                self.open_count[i,j] = np.sum(a[temp:int(temp+self.bt_count[i,j])])
+                temp = int(temp+self.bt_count[i,j])
+                if self.open_count[i,j] == 0 and self.car_count[i,j,t] == 0:
                     self.utilization_ratio[i,j] = U_BEST
-                elif self.open_count[i,j] == 0 && self.car_count[i,j,t] != 0:
-                    self.utilization_ration[i,j] = 100 # I gives a very big punishment to this situation.Need to be considered
+                elif self.open_count[i,j] == 0 and self.car_count[i,j,t] != 0:
+                    self.utilization_ratio[i,j] = 100 # I gives a very big punishment to this situation.Need to be considered
                 else:
                     self.utilization_ratio[i,j] = self.car_count[i,j,t]/(CAPACITY*self.open_count[i,j])
         return self.utilization_ratio
@@ -150,7 +155,7 @@ env = Env(bt_count, car_count)
 
 for i_episode in range(400):
     a = np.ravel(np.zeros((1,N_ACTIONS)))
-    utilization_ratio = env.update(a, 0)
+    utilization_ratio = env.update(a, t = 0)
     s = np.ravel(np.zeros((1,N_STATES)))
     s[0:N_ACTIONS] = a
     s[N_ACTIONS:N_STATES] = np.ravel(utilization_ratio)
@@ -158,7 +163,7 @@ for i_episode in range(400):
     ep_r = 0
     for t in range(1,SLOTNUM):
         a = dqn.choose_action(s)
-        utilization_ratio = env.update(a, t)
+        utilization_ratio = env.update(a, t = t)
         t = t+1
         s_[0:N_ACTIONS] = a
         s_[N_ACTIONS:N_STATES] = np.ravel(utilization_ratio)
@@ -166,13 +171,13 @@ for i_episode in range(400):
         puni_utilization = 0
         for i in range(L):
             for j in range(L):
-                if utilization_ratio[i,j]<=U_BEST
+                if utilization_ratio[i,j]<=U_BEST:
                     puni_utilization += PHI_1*(U_BEST-utilization_ratio[i,j])
                 else:
                     puni_utilization += PHI_2*(utilization_ratio[i,j]-U_BEST)
         puni_contentloss = 0
         for i in range(N_ACTIONS):
-            if s[i] == 1 && s_[i] == 0:
+            if s[i] == 1 and s_[i] == 0:
                 puni_contentloss += OMEGA
         r = -cost_open-puni_utilization-puni_contentloss
 
@@ -181,7 +186,5 @@ for i_episode in range(400):
         ep_r += r
         if dqn.memory_counter > MEMORY_CAPACITY:
             dqn.learn()
-            if done:
-                print('Ep: ', i_episode,
-                      '| Ep_r: ', round(ep_r, 2))
+            
         s = s_
