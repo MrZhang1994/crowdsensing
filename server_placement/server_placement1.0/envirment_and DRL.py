@@ -145,6 +145,11 @@ class Env:
                     self.utilization_ratio[i,j] = U_BEST
                 elif self.open_count[i,j] == 0 and self.car_count[i,j,t] != 0:
                     self.utilization_ratio[i,j] = 100 # I gives a very big punishment to this situation.Need to be considered
+                self.open_count[i,j] = np.sum(a[temp:temp+self.bt_count[i,j]])
+                if self.open_count[i,j] == 0 and self.car_count[i,j,t] == 0:
+                    self.utilization_ratio[i,j] = U_BEST
+                elif self.open_count[i,j] == 0 and self.car_count[i,j,t] != 0:
+                    self.utilization_ration[i,j] = 100 # I gives a very big punishment to this situation.Need to be considered
                 else:
                     self.utilization_ratio[i,j] = self.car_count[i,j,t]/(CAPACITY*self.open_count[i,j])
         return self.utilization_ratio
