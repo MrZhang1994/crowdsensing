@@ -169,7 +169,6 @@ for i_episode in range(400):
     for t in range(1,SLOTNUM):
         a = dqn.choose_action(s)
         utilization_ratio = env.update(a, t = t)
-        t = t+1
         s_[0:N_ACTIONS] = a
         s_[N_ACTIONS:N_STATES] = np.ravel(utilization_ratio)
         cost_open = ALPHA*np.sum(a)
