@@ -345,12 +345,15 @@ class Env:
         bts = np.array(bts)
         # print(bts)
         plt.clf()
-        plt.scatter(cars[:,0], cars[:,1], c = 'b', marker = '.')
-        plt.scatter(bts[:,0], bts[:,1], c = 'r', marker = '.')
+        if len(cars)>0:
+            plt.scatter(cars[:,0], cars[:,1], c = 'b', marker = '.')
+        if len(bts)>0:
+            plt.scatter(bts[:,0], bts[:,1], c = 'r', marker = '.')
         plt.xlim(0, 10000)
         plt.ylim(0, 10000)
         plt.show()
-        plt.pause(0.2)
+        plt.savefig('result_images/'+str(t)+'.jpg')
+        plt.pause(1)
         # plt.ioff()
         
 
