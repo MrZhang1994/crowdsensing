@@ -52,11 +52,13 @@ If parameters are not appropriately selected, possible errors/warnings would occ
 cerr << "Error: clustering failed with too large number of clusters" << endl;
 ```
 2. Too small capacity 
+
 Cannot even store a single attribution
 ```cpp
 cerr << "Capacity of L" << num_layer << " servers are too small" << endl;
 ```
 3. Too large capacity
+
 Capacity is too large so that all the attributions can be stored in servers of upper layers (layer No. > 1)
 ```cpp
 cerr << "WARNING (occurred when cluster number is " << clusterNum << "):" << endl;
