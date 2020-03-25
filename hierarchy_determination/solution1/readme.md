@@ -23,6 +23,9 @@ g++ -Wall -o hsd hsd.cpp task.cpp server.cpp eval.cpp
 ## Parameters
 All relavent parameters can be changed in `hsd.cpp`.
 
+## Output files
+Relavent output files are all in `.csv` format. `config_#.csv` records configurations of server system. Each cluster number corresponds to one configuration result. `task_list.csv` records generated task list.
+
 # Previous Updates
 ## Task test
 ### Compile
