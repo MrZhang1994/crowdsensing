@@ -17,8 +17,12 @@ public:
     float utilization;              // [0,1]
     vector<bool> area;              // Sensing area
     vector<float> weight;           // Attribution weights
-    vector<int> lower_neighbours;   // Index of connected servers in lower layer
-    vector<int> upper_neighbours;   // Index of connected servers in upper layer
+    vector<bool> attr;              // Attributions
+
+    // <Index of connected servers in lower layer, latency between 2 servers>
+    vector<pair<int, int>> lower_neighbours;   
+    // <Index of connected servers in upper layer, latency between 2 servers>
+    vector<pair<int, int>> upper_neighbours;   
 
     // Constructor
     server_t(int layer, int area_size, int attr_size, int sensingArea, int capacity, 

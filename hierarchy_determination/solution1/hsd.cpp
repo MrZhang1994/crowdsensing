@@ -1,28 +1,34 @@
 #include <iostream>
 #include <vector>
+#include <string>
+#include <ctime>
+#include <fstream>
 #include "task.h"
 #include "server.h"
 #include "cluster/kmeans.h"
+#include "eval.h"
 using namespace std;
 
 // Parameters
-#define L1_SERVER_RANGE 2               // Range covered by L1 servers
+#define L1_SERVER_RANGE 5               // Range covered by L1 servers
 #define L1_CAPACITY 50                  // capacity of L1 srevers
-#define CAPACITY(n) n*L1_CAPACITY*0.7   // capacity of Ln servers
+#define CAPACITY(n) n*L1_CAPACITY*0.6   // capacity of Ln servers
 #define lb_u 0.5                        // lower bound of server utilization
 #define ub_u 1                          // upper bound of server utilization
-#define AREA_SIZE 20                    // size of area vector
+#define AREA_SIZE 30                    // size of area vector
 #define ATTR_SIZE 10                    // size of  attribution vector
 #define NUM_TASK 20                     // number of tasks
 #define NUM_CLASS 3                     // number of classes of tasks (for generating tasks)
 #define NUM_ITERS 100                   // number of iterations for k-means clustering
 #define HP1 1
 #define HP2 0
-#define HP3 3
+#define HP3 4
+#define HP4 2
+#define HP5 0.6
 
 // Output options
 #define show_cluster_results
-#define show_server_configurations  // different cluster numbers
+//#define show_server_configurations  // different cluster numbers
 
 
 // Cluster the tasks
@@ -128,13 +134,13 @@ void print_servers(vector<vector<server_t>> servers)
             cout << "Lower neighbours: [ ";
             for (unsigned int k = 0; k < servers[i][j].lower_neighbours.size(); k++)
             {
-                cout << servers[i][j].lower_neighbours[k] << " ";
+                cout << servers[i][j].lower_neighbours[k].first << " ";
             }
             cout << "]" << endl;
             cout << "Upper neighbours: [ ";
             for (unsigned int k = 0; k < servers[i][j].upper_neighbours.size(); k++)
             {
-                cout << servers[i][j].upper_neighbours[k] << " ";
+                cout << servers[i][j].upper_neighbours[k].first << " ";
             }
             cout << "]" << endl;
         }
@@ -142,14 +148,87 @@ void print_servers(vector<vector<server_t>> servers)
 }
 
 
+// Log server configuration
+void log_servers(vector<vector<server_t>> servers, ofstream &outFile, string seperator)
+{
+    //log configL(L, v()().m[], v()().w[], e()[][], Delay,TransCost, attrTrans)
+    outFile << "layer" << seperator << "No." << seperator << "range" << seperator
+        << "areas" << seperator << "weight" << seperator << "attributions" 
+        << seperator << "lower connections (layer-index)" << seperator
+        << "upper connections (layer-index)" << endl; 
+    for (size_t i = 0; i < servers.size(); i++)
+    {
+        for (size_t j = 0; j < servers[i].size(); j++)
+        {
+            string out;
+            server_t &s = servers[i][j];
+            out = to_string(s.layer) + seperator + to_string(j+1) + seperator +
+                to_string(s.sensingArea) + seperator + "[";
+            for (int k = 0; k < AREA_SIZE; k++)
+            {
+                if (k < AREA_SIZE-1)
+                    out = out + to_string(s.area[k]) + " ";
+                else
+                    out = out + to_string(s.area[k]) + "]";
+            }
+            out = out + seperator + "[";
+            for (int k = 0; k < ATTR_SIZE; k++)
+            {
+                if (k < ATTR_SIZE-1)
+                    out = out + to_string(s.weight[k]) + " ";
+                else
+                    out = out + to_string(s.weight[k]) + "]";
+            }
+            out = out + seperator + "[";
+            for (int k = 0; k < ATTR_SIZE; k++)
+            {
+                if (k < ATTR_SIZE-1)
+                    out = out + to_string(s.attr[k]) + " ";
+                else
+                    out = out + to_string(s.attr[k]) + "]";
+            }
+            out = out + seperator + "[";
+            for (size_t k = 0; k < s.lower_neighbours.size(); k++)
+            {
+                if (k < s.lower_neighbours.size()-1)
+                    out = out + "(" + to_string(s.layer-1) + "-" +
+                        to_string(s.lower_neighbours[k].first+1) + ") ";
+                else
+                    out = out + "(" + to_string(s.layer-1) + "-" +
+                        to_string(s.lower_neighbours[k].first+1) + ")]";
+            }
+            if (s.lower_neighbours.size() == 0)
+                out = out + "]";
+            out = out + seperator + "[";
+            for (size_t k = 0; k < s.upper_neighbours.size(); k++)
+            {
+                if (k < s.upper_neighbours.size()-1)
+                    out = out + "(" + to_string(s.layer+1) + "-" +
+                        to_string(s.upper_neighbours[k].first+1) + ") ";
+                else
+                    out = out + "(" + to_string(s.layer-1) + "-" +
+                        to_string(s.upper_neighbours[k].first+1) + ")]";
+            }
+            if (s.upper_neighbours.size() == 0)
+                out = out + "]";
+            outFile << out << endl;
+        }
+    }
+}
+
+
 void hsd()
 {
+    srand48(time(NULL));
+
     vector<server_t> L1_servers = generate_L1_servers(L1_SERVER_RANGE, AREA_SIZE, 
         ATTR_SIZE, L1_CAPACITY, lb_u, ub_u);
     vector<task_t> taskList = taskGenerator(AREA_SIZE, ATTR_SIZE, NUM_TASK, 
         NUM_CLASS, HP1, HP2);
     vector<vector<server_t>> servers;
     servers.push_back(L1_servers);
+
+    vector<pair<int, result_t>> eval_results;   // <number of servers, result>
 
     cout << "Task generation completed." << endl;
 
@@ -253,7 +332,7 @@ void hsd()
                 {
                     cerr << "WARNING (occurred when cluster number is " << clusterNum << "):" << endl;
                     cerr << "Capacity of L" << num_layer << " servers are too big" << endl;
-                    cerr << "All attributions are stored in " << num_layer << " servers" << endl;
+                    cerr << "All attributions are stored in L" << num_layer << " servers" << endl;
                     num_stored_attr = ATTR_SIZE;
                 }
                 vector<int> weight_index = index_of_n_largest_numbers(weight_sum, num_stored_attr);
@@ -270,14 +349,15 @@ void hsd()
                         // Record indicecs of connected servers
                         if ((int)servers.size() < num_layer)
                         {
-                            servers[num_layer-2][k].upper_neighbours.push_back(0);
+                            // mark the latency as -1 before being set
+                            servers[num_layer-2][k].upper_neighbours.push_back(make_pair(0,-1));
                         }
                         else
                         {
-                            servers[num_layer-2][k].upper_neighbours.push_back(
-                                int(servers[num_layer-1].size()));
+                            servers[num_layer-2][k].upper_neighbours.push_back(make_pair(
+                                int(servers[num_layer-1].size()), -1));
                         }
-                        new_server.lower_neighbours.push_back(k);
+                        new_server.lower_neighbours.push_back(make_pair(k, -1));
                     }
                 }
                 // Add new server into the list
@@ -296,7 +376,7 @@ void hsd()
                 float demand = 0;
                 for (int k = 0; k < new_server.sensingArea; k++)
                 {
-                    new_server.area[AREA_SIZE-k] = 1; 
+                    new_server.area[AREA_SIZE-k-1] = 1; 
                     demand = demand+sm[AREA_SIZE-k];
                 }
                 // Set attribution weights (same as above)
@@ -327,14 +407,14 @@ void hsd()
                         // Record indicecs of connected servers
                         if ((int)servers.size() < num_layer)
                         {
-                            servers[num_layer-2][k].upper_neighbours.push_back(0);
+                            servers[num_layer-2][k].upper_neighbours.push_back(make_pair(0, -1));
                         }
                         else
                         {
-                            servers[num_layer-2][k].upper_neighbours.push_back(
-                                int(servers[num_layer-1].size()));
+                            servers[num_layer-2][k].upper_neighbours.push_back(make_pair(
+                                int(servers[num_layer-1].size()), -1));
                         }
-                        new_server.lower_neighbours.push_back(k);
+                        new_server.lower_neighbours.push_back(make_pair(k, -1));
                     }
                 }
                 // Add new server into the list
@@ -348,15 +428,63 @@ void hsd()
         }
 
 #ifdef show_server_configurations
-    cout << "==================================================================" << endl;
-    cout << "Following is the server configuration for " << clusterNum << " clusters" << endl;
-    print_servers(servers);
+        cout << "==================================================================" << endl;
+        cout << "CONFIGURATION " << eval_results.size()+1 << endl;
+        cout << "Following is the server configuration for " << clusterNum << " clusters" << endl;
+        print_servers(servers);
 #endif
 
+
+        // Evaluator
+        result_t rst = evaluator(servers, taskList, HP4, HP5);
+        int num_servers = 0;
+        for (size_t i = 0; i < servers.size(); i++)
+        {
+            num_servers = num_servers + servers[i].size();
+        }
+        eval_results.push_back(make_pair(num_servers, rst));
+
+
+        // Log configurations
+        string seperator = ",";     // Change this parameter to change the seperator
+        string name = "config_" + to_string(eval_results.size()) + ".csv";
+        ofstream outFile(name);  
+        if (outFile.fail())
+        {
+            cout << "Cannot open the file '" << name  << "'" << endl; 
+        }
+        log_servers(servers, outFile, seperator);
+        outFile << "Delay: " << eval_results[eval_results.size()-1].second.total_delay << endl;
+        outFile << "TransCost: " << eval_results[eval_results.size()-1].second.total_transCost << endl;
+        outFile << "AttrTrans: " << eval_results[eval_results.size()-1].second.attrTrans << endl;
     }
 
-    // Evaluator
-    
+    int min_delay_config = 0;
+    int min_transCost_config = 0;
+    int min_servers_config = 0;
+    int min_attrTrans_config = 0;
+    int min_failure = 0;
+    for (size_t i = 0; i < eval_results.size(); i++)
+    {
+        if (eval_results[i].second.total_delay < eval_results[min_delay_config].second.total_delay)
+            min_delay_config = i;
+        if (eval_results[i].second.total_transCost < eval_results[min_delay_config].second.total_transCost)
+            min_transCost_config = i; 
+        if (eval_results[i].second.attrTrans < eval_results[min_attrTrans_config].second.attrTrans)
+            min_attrTrans_config = i;
+        if (eval_results[i].first < eval_results[min_servers_config].first)
+            min_servers_config = i;
+        if (eval_results[i].second.num_failure < eval_results[min_failure].second.num_failure)
+            min_failure = i;
+    }
+
+    cout << "==================================================================" << endl;
+    cout << "Evaluation result:" << endl;
+    cout << "Minimum total delay: configuration " << min_delay_config+1 << endl;
+    cout << "Minimum total transCost: configuration " << min_transCost_config+1 << endl;
+    cout << "Minimum attrTrans: configuration " << min_attrTrans_config+1 << endl;
+    cout << "Minimum number of servers: configuration " << min_servers_config+1 << endl;
+    cout << "Minimum number of failures: configuration " << min_failure+1 << endl;
 
 }
 
