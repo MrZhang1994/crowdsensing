@@ -1,5 +1,29 @@
 This is the archive containing solution to hierarchy_determination
+# First complete draft updated
+## Project hierachy
+``` 
+hsd.cpp
+  |- task.h / task.cpp
+      |- taskGenerator
+  |- srever.h / server.cpp
+  |- eval.h / eval.cpp
+      |- evaluator
+      |- dispatcher
+      |- matcher
+```
 
+## Compile
+```bash
+g++ -Wall -o hsd hsd.cpp task.cpp server.cpp eval.cpp
+```
+## Execute
+```bash
+./hsd
+```
+## Parameters
+All relavent parameters can be changed in `hsd.cpp`.
+
+# Previous Updates
 ## Task test
 ### Compile
 ```bash
