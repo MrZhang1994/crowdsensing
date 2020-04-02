@@ -18,6 +18,9 @@ task_t::task_t(int area_size, int attr_size, int num_layer, float HP1, float HP2
 
     selectedClass = lrand48()%num_layer+1;
     clusteredClass = -1;    // undefined
+    target = make_pair(-1, -1);
+    delay = 0;
+    transCost = 0;
 
     // Set sensing areas
     default_random_engine generator;
