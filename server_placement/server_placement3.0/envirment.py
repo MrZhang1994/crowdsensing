@@ -1,35 +1,36 @@
 import numpy as np
 from numpy import array as array
 from matplotlib import pyplot as plt
+import config
 
 
 # some parameters
-L = 30 # the numbers of rows and columns
-MAX_QUEUING_TIME = 1000
-L1_INDE_CAPACITY = 5 # how many cars one INDE can serve 
-L2_INDE_CAPACITY = 10
-U_BEST = 0.7 # as the name say
+L = config.L # the numbers of rows and columns
+MAX_QUEUING_TIME = config.MAX_QUEUING_TIME
+L1_INDE_CAPACITY = config.L1_INDE_CAPACITY # how many cars one INDE can serve 
+L2_INDE_CAPACITY = config.L2_INDE_CAPACITY
 
 # control mode
-PrintLogType = -1
-PictureType = 1
-LogLocation = 'log/'
+PrintLogType = config.PrintLogType
+PictureType = config.PictureType
 
-a_dim = 1910
-s_dim = 1910*3
+
+a_dim = config.a_dim
+s_dim = config.s_dim
 
 class Car:
-    def __init__(self, ID, arr):
+    def __init__(self, ID, t, arr):
         self.id = ID
         self.arr = arr
-        self.start = int(arr[0,2])
-        self.pos = arr[0,0:2]
+        self.start = t
+        self.stoptime = int(arr[-1][2])
+        self.pos = arr[0][0:2]
         self.distance = 99999
         self.delay = 99999
         self.INDE = -1
 
     def update(self, t, dict_L1_INDE_cell, rho, list_INDE_object):
-        self.pos = self.arr[t-self.start,0:2]
+        self.pos = self.arr[t-self.start][0:2]
         if self.INDE != -1:
             list_INDE_object[self.INDE].L1_disconnect_Car(self.id)
         self.update_INDE(dict_L1_INDE_cell, rho, list_INDE_object)
@@ -55,19 +56,45 @@ class Car:
 
     def update_INDE(self, dict_L1_INDE_cell, rho, list_INDE_object):
         cell_number = 10*int(self.pos[0]/1000)+int(self.pos[1]/1000)
+        
+        self.find_closest_INDE(cell_number, dict_L1_INDE_cell, list_INDE_object)
+        # if self.find_closest_INDE(cell_number, dict_L1_INDE_cell, list_INDE_object) == 1:
+        #     pass
+        # else:
+        #     if cell_number%10 == 0:
+        #         self.find_closest_INDE(cell_number+1, dict_L1_INDE_cell, list_INDE_object)
+        #     elif cell_number%10 == 9:
+        #         self.find_closest_INDE(cell_number-1, dict_L1_INDE_cell, list_INDE_object)
+        #     else:
+        #         self.find_closest_INDE(cell_number+1, dict_L1_INDE_cell, list_INDE_object)
+        #         self.find_closest_INDE(cell_number-1, dict_L1_INDE_cell, list_INDE_object)
+
+        #     if int(cell_number/10) == 0:
+        #         self.find_closest_INDE(cell_number+10, dict_L1_INDE_cell, list_INDE_object)
+        #     elif int(cell_number/10) == 9:
+        #         self.find_closest_INDE(cell_number-10, dict_L1_INDE_cell, list_INDE_object)
+        #     else:
+        #         self.find_closest_INDE(cell_number+10, dict_L1_INDE_cell, list_INDE_object)
+        #         self.find_closest_INDE(cell_number-10, dict_L1_INDE_cell, list_INDE_object)
+
+        self.calculate_delay(self.INDE, rho, list_INDE_object)
+
+    def find_closest_INDE(self, cell_number, dict_L1_INDE_cell, list_INDE_object):
         if dict_L1_INDE_cell[cell_number]:
             # self.INDE = choice(dict_L1_INDE_cell[cell_number])
             for i in range(len(dict_L1_INDE_cell[cell_number])):
                 pos0 = list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].pos[0]
                 pos1 = list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].pos[1]
                 new_distance = np.sqrt(np.square(self.pos[0]-pos0)+np.square(self.pos[1]-pos1))
-                if new_distance < self.distance and list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].L1_report_loadrate()<1:
+                # if new_distance < self.distance and list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].L1_report_loadrate()<1:
+                if new_distance < self.distance:
                     self.INDE = (dict_L1_INDE_cell[cell_number])[i]
-                    self.distance = new_distance         
+                    self.distance = new_distance
+            return 1
         else:
-            self.INDE = -1
-        self.calculate_delay(self.INDE, rho, list_INDE_object)
-       
+            # self.INDE = -1
+            return 0
+
 class INDE:
     def __init__(self, ID, INDEtype, arr):
         # Hardware attribute
@@ -77,7 +104,7 @@ class INDE:
         if self.INDEtype == 0:
             self.pos = arr
         else:
-            self.pos = arr[0,:]
+            self.pos = arr[0][:]
         self.timestamp = 0
         self.arrlen = len(self.arr)
 
@@ -101,7 +128,7 @@ class INDE:
         if self.INDEtype == 1: # means it's a carINDE
             if self.timestamp >= self.arrlen:
                 self.timestamp = 0
-            self.pos = self.arr[self.timestamp,:]
+            self.pos = self.arr[self.timestamp][:]
             self.timestamp = self.timestamp+1
         if self.L1_state == 1 or self.L2_state == 1:
             new_cell_number = 10*int(self.pos[0]/1000)+int(self.pos[1]/1000)
@@ -167,6 +194,16 @@ class INDE:
     def L1_report_loadrate(self):
         return(self.L1_loadrate)
 
+    def L1_calculate_cars_delay(self, dict_existing_car):
+        if self.L1_state == 1 and len(self.L1_connecting_car_list) != 0:
+            sum_delay = 0
+            for i in range(len(self.L1_connecting_car_list)):
+                car_id = self.L1_connecting_car_list[i]
+                sum_delay += dict_existing_car[car_id].delay
+            return sum_delay/len(self.L1_connecting_car_list)
+        else:
+            return 0
+
     # Some operations on the second layer
     def L2_open(self):
         self.L2_state = 1
@@ -201,6 +238,8 @@ class INDE:
     def L2_report_loadrate(self):
         return(self.L2_loadrate)
 
+
+
     def Render(self):
         # L1 software attribute
         # self.L1_state = 0
@@ -218,19 +257,26 @@ class Env:
     '''
     about the envornment
     '''
-    def __init__(self):
+    def __init__(self, Date):
         '''initializing'''
-        self.INDE_pos = np.loadtxt('bt_inside_1910.txt')
-        self.rho = np.loadtxt('rho.txt')
-        f = open('dict_Car.txt','r')
+        self.INDE_pos = np.loadtxt(config.preprocessed_data_Location+'bt_inside_1910.txt')
+        self.rho = np.loadtxt(config.preprocessed_data_Location+'rho.txt')
+        f = open('preprocessed_data/dict_Car/dict_Car_'+str(Date)+'.txt','r')
         a = f.read()
         self.dict_Car = eval(a)
         f.close()
-        f = open('dict_INDECar.txt','r')
+
+        f = open('preprocessed_data/dict_Car/dict_Car_'+str(Date)+'_TimeIndex.txt','r')
+        a = f.read()
+        self.dict_Car_TimeIndex = eval(a)
+        f.close()        
+
+        f = open(config.preprocessed_data_Location+'dict_INDECar.txt','r')
         a = f.read()
         self.dict_IDNECar = eval(a)
         f.close()
 
+        del a
         '''
         some list
         '''
@@ -239,11 +285,14 @@ class Env:
         self.car_counter = 0 # a numbering counter
 
         self.dict_L1_INDE_cell = {}
+        for i in range(100):
+            self.dict_L1_INDE_cell.update({i:[]})
 
         self.list_open_L1_INDE = []
         self.list_open_L2_INDE = []
 
         self.load_rate = np.zeros((a_dim,1))
+        self.L1_car_delay = np.zeros((a_dim,1))
 
         '''
         create object
@@ -260,7 +309,7 @@ class Env:
             plt.ion()
 
 
-    def update(self, a, a_last, t):
+    def update(self, a, a_last, i_p, t):
         '''
         an updation through time
         '''
@@ -273,12 +322,10 @@ class Env:
                 self.list_INDE_object[i].L1_close(self.list_open_L1_INDE, self.dict_L1_INDE_cell, self.dict_existing_car)
 
         # add new car to the environment
-        for i in range(20):
-            if (i+20*t) in self.dict_Car.keys():
-                self.dict_existing_car.update({self.car_counter:Car(self.car_counter, self.dict_Car[i+20*t])})
+        if t in list(self.dict_Car_TimeIndex.keys()):
+            for i in range(len(self.dict_Car_TimeIndex[t])):
+                self.dict_existing_car.update({self.car_counter:Car(self.car_counter, t, self.dict_Car[self.dict_Car_TimeIndex[t][i]])})
                 self.car_counter = self.car_counter+1
-            else:
-                break
 
         # cars update their position and maybe find a new INDE
 
@@ -296,15 +343,24 @@ class Env:
         # del cars
         for key in list(self.dict_existing_car.keys()):
             # if t == self.dict_existing_car[key].arr[-1,2]:
-            if t == self.dict_existing_car[key].arr[-1,2]:
+            if t == self.dict_existing_car[key].stoptime:
                 if self.dict_existing_car[key].INDE != -1:
                     self.list_INDE_object[self.dict_existing_car[key].INDE].L1_disconnect_Car(key)
                 del self.dict_existing_car[key]
 
         # # draw picture
-        self.Draw_L1_Car_Picture(t, PictureType)
-        
-        return np.vstack((self.load_rate, self.GetPos()))
+        if t%200 == 0:
+            self.Draw_L1_Car_Picture(i_p, t, PictureType)
+
+        # single_reward = np.zeros((a_dim,1))
+        # for i in range(a_dim):
+        #     if self.load_rate[i]<=1:
+        #         single_reward[i] = -self.load_rate[i]*self.load_rate[i]+2*self.load_rate[i]
+        #     else:
+        #         single_reward[i] = -self.load_rate[i]*self.load_rate[i]+self.load_rate[i]+1
+
+        return np.vstack((self.load_rate, np.array([[t]])))
+        # return self.load_rate
 
     def Print_L1_Car_Log(self, t, PrintLogType):
         '''
@@ -316,16 +372,16 @@ class Env:
         '''
         if PrintLogType != -1:
             if t == 0:
-                f = open(LogLocation+'log'+str(PrintLogType)+'.txt', 'w')
+                f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'w')
             else:
-                f = open(LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
             f.write('================================ t = '+str(t)+' =======================================\n'+'\n')
             f.close()
             if PrintLogType == 0:
                 for i in range(len(self.list_INDE_object)):
                     self.load_rate[i] = self.list_INDE_object[i].L1_report_loadrate()
                     # create system log
-                    f = open(LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                    f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
                     log = 'INDE='+str(i)+'||state='+str(self.list_INDE_object[i].L1_state)+'||'
                     log += 'INDEtype='+str(self.list_INDE_object[i].INDEtype)+'||'
                     log += 'loadrate='+str(self.load_rate[i])+'||'
@@ -347,7 +403,7 @@ class Env:
                     self.load_rate[i] = self.list_INDE_object[i].L1_report_loadrate()
                     # create system log
                     if len(self.list_INDE_object[i].L1_connecting_car_list) != 0:
-                        f = open(LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                        f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
                         log = 'INDE='+str(i)+'||state='+str(self.list_INDE_object[i].L1_state)+'||'
                         log += 'INDEtype='+str(self.list_INDE_object[i].INDEtype)+'||'
                         log += 'loadrate='+str(self.load_rate[i])+'||'
@@ -369,7 +425,7 @@ class Env:
                     self.load_rate[i] = self.list_INDE_object[i].L1_report_loadrate()
                     # create system log
                     if self.list_INDE_object[i].L1_state != 0:
-                        f = open(LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                        f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
                         log = 'INDE='+str(i)+'||state='+str(self.list_INDE_object[i].L1_state)+'||'
                         log += 'INDEtype='+str(self.list_INDE_object[i].INDEtype)+'||'
                         log += 'loadrate='+str(self.load_rate[i])+'||'
@@ -386,7 +442,7 @@ class Env:
                                 f.write(log)
                         f.write('\n')          
                         f.close()
-            f = open(LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+            f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
             f.write('Cars that dont have a INDE:'+'\n')
             for key in list(self.dict_existing_car.keys()):
                 if self.dict_existing_car[key].INDE == -1:
@@ -398,7 +454,7 @@ class Env:
             for i in range(len(self.list_INDE_object)):
                 self.load_rate[i] = self.list_INDE_object[i].L1_report_loadrate()
 
-    def Draw_L1_Car_Picture(self, t, PictureType):
+    def Draw_L1_Car_Picture(self, i_p, t, PictureType):
         '''
         Draw pictures of INDEs and cars:
         PictureType = 0 means only save pictures
@@ -422,29 +478,45 @@ class Env:
             plt.xlim(0, 10000)
             plt.ylim(0, 10000)
             if PictureType == 0:
-                plt.savefig('result_images/'+str(t)+'.jpg')
+                plt.savefig(config.result_Location+'result_images/'+str(i_p)+'_'+str(t)+'.png')
             elif PictureType == 1:
                 plt.show()
-                plt.savefig('result_images/'+str(t)+'.jpg')
+                plt.savefig(config.result_Location+'result_images/'+str(i_p)+'_'+str(t)+'.png')
                 plt.pause(0.05)
                 # plt.ioff()
+            elif PictureType ==2 :
+                plt.show()
+                plt.pause(0.05)
 
     def Print_System_Performance(self):
         connected_car_count = 0
         unconnected_car_count = 0
+        connected_car_rate = 0
+        unconnected_car_rate = 0
         for key in self.dict_existing_car.keys():
             if self.dict_existing_car[key].INDE == -1:
                 unconnected_car_count += 1
             else:
                 connected_car_count += 1
         car_num = len(self.dict_existing_car)
-        connected_car_rate = connected_car_count/car_num
-        unconnected_car_rate = unconnected_car_count/car_num
+        if car_num!= 0:
+            connected_car_rate = connected_car_count/car_num
+            unconnected_car_rate = unconnected_car_count/car_num
         return [car_num, connected_car_rate]
 
     def GetPos(self):
         return self.INDE_pos.reshape((1910*2,1))
-            
+
+    def Get_L1_Car_Delay(self):
+        for i in range(a_dim):
+            self.L1_car_delay[i] = self.list_INDE_object[i].L1_calculate_cars_delay(self.dict_existing_car)
+        return self.L1_car_delay
+
+    def Get_L1_Car_Num(self):
+        return [len(self.dict_existing_car), len(self.list_open_L1_INDE)]
+
+
+
     def Render(self):
         for i in range(len(self.list_INDE_object)):
             self.list_INDE_object[i].Render()
@@ -452,4 +524,20 @@ class Env:
         self.dict_existing_car = {}
         self.car_counter = 0 # a numbering counter
 
-        # self.load_rate = np.zeros((a_dim,1))        
+        # self.load_rate = np.zeros((a_dim,1))
+
+    def Restart_With_A_New_Day(self, Date):
+        for i in range(len(self.list_INDE_object)):
+            self.list_INDE_object[i].Render()
+        self.dict_existing_car = {}
+        self.car_counter = 0 # a numbering counter
+
+        f = open('preprocessed_data/dict_Car/dict_Car_'+str(Date)+'.txt','r')
+        a = f.read()
+        self.dict_Car = eval(a)
+        f.close()
+
+        f = open('preprocessed_data/dict_Car/dict_Car_'+str(Date)+'_TimeIndex.txt','r')
+        a = f.read()
+        self.dict_Car_TimeIndex = eval(a)
+        f.close()           

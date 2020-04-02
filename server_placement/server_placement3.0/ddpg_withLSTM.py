@@ -3,39 +3,46 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import config
 
-MEMORY_CAPACITY = 40
-LR_A = 0.001    # learning rate for actor
-LR_C = 0.002    # learning rate for critic
-GAMMA = 0.9     # reward discount
-TAU = 0.01      # soft replacement
-BATCH_SIZE = 32
+MEMORY_CAPACITY = config.MEMORY_CAPACITY
+LR_A = config.LR_A    # learning rate for actor
+LR_C = config.LR_C    # learning rate for critic
+GAMMA = config.GAMMA     # reward discount
+TAU = config.TAU      # soft replacement
+BATCH_SIZE = config.BATCH_SIZE
 # EPSILON = 0.2
+
+use_gpu = torch.cuda.is_available()
 
 class ANet(nn.Module):
     def __init__(self, s_dim, a_dim):
         super(ANet, self).__init__()
-        self.fc1 = nn.Linear(s_dim, 50)
+        self.conv1 = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=5)
+        self.fc1 = nn.Linear(s_dim-5+1, 100)
         self.fc1.weight.data.normal_(0, 0.1)
-        self.rnn = nn.LSTM(
-            input_size = 50,
-            hidden_size = 100,
-            num_layers = 1,
-            batch_first = True
-            )
+        # self.rnn = nn.LSTM(
+        #     input_size = 100,
+        #     hidden_size = 100,
+        #     num_layers = 1,
+        #     batch_first = True
+        #     )
         self.out = nn.Linear(100, a_dim)
         self.out.weight.data.normal_(0, 0.1)        
 
     def forward(self, x):
         # print(x)
         # print(x)
-        x1 = self.fc1(x)
+        x = x.permute(1,0,2)
+        x0 = self.conv1(x)
+        x0 = x0.permute(1,0,2)
+        x1 = self.fc1(x0)
         x2 = F.relu(x1)
         # print(x2)
         # print(self.rnn(x2))
-        output,(h_n, c_n) = self.rnn(x2)
-        x3 = h_n[-1,:,:]
-        x4 = self.out(x3)
+        # output,(h_n, c_n) = self.rnn(x2)
+        # x3 = h_n[-1,:,:]
+        x4 = self.out(x2)
         x5 = F.relu(x4)
         action_value = x5*2
         return action_value
@@ -43,11 +50,11 @@ class ANet(nn.Module):
 class CNet(nn.Module):
     def __init__(self, s_dim, a_dim):
         super(CNet, self).__init__()
-        self.fcs = nn.Linear(s_dim, 50)
+        self.fcs = nn.Linear(s_dim, 100)
         self.fcs.weight.data.normal_(0, 0.1)
-        self.fca = nn.Linear(a_dim, 50)
+        self.fca = nn.Linear(a_dim, 100)
         self.fca.weight.data.normal_(0, 0.1)
-        self.out = nn.Linear(50,1)
+        self.out = nn.Linear(100,1)
         self.out.weight.data.normal_(0, 0.1)
 
     def forward(self, s, a):
@@ -72,10 +79,21 @@ class DDPG_withLSTM(object):
         self.ctrain = torch.optim.Adam(self.Critic_eval.parameters(), lr = LR_C)
         self.atrain = torch.optim.Adam(self.Actor_eval.parameters(), lr = LR_A)
         self.loss_td = nn.MSELoss()
+        if use_gpu:
+            self.Actor_eval = self.Actor_eval.cuda()
+            self.Actor_target = self.Actor_target.cuda()
+            self.Critic_eval = self.Critic_eval.cuda()
+            self.Critic_target = self.Critic_target.cuda()
+            self.loss_td = self.loss_td.cuda()
 
-    def choose_action_0(self, s, CarNum):
-        s = torch.unsqueeze(torch.FloatTensor(s), 0)
-        return self.Actor_eval(s)[0].detach()
+    def choose_action_0(self, s):
+        if use_gpu:
+            s = s.cuda()        
+        ss = torch.unsqueeze(torch.FloatTensor(s), 0)
+        action = self.Actor_eval(ss)[0].detach()
+        if use_gpu:
+            action = action.cpu()
+        return action
 
     def choose_action_1(self, s, CarNum):
         if np.random.uniform() < EPSILON:   # greedy
@@ -91,18 +109,48 @@ class DDPG_withLSTM(object):
         return action
 
     def choose_action_2(self, s, EPSILON):
+        if use_gpu:
+            s = s.cuda()        
         ss = torch.unsqueeze(torch.FloatTensor(s), 0)
         action = self.Actor_eval(ss)[0].detach()
+        if use_gpu:
+            action = action.cpu()
+        action = action.numpy()
+        # print(s)
+        # print(action)
+        # action = np.expand_dims(action, axis=0)
+        # print(action)
+        for i in range(self.a_dim):
+
+            if s[0,i] == 0 and action[0,i] > 0.5 and np.random.uniform() <= EPSILON:
+            # if s[0,i] == 0 and action[0,i] > 0.5:
+                action[0,i] = 0
+ 
+        action = torch.from_numpy(action)
+        return action
+
+    def choose_action_3(self, s, EPSILON):
+        if use_gpu:
+            s = s.cuda()        
+        ss = torch.unsqueeze(torch.FloatTensor(s), 0)
+        action = self.Actor_eval(ss)[0].detach()
+        if use_gpu:
+            action = action.cpu()
         action = action.numpy()
         # print(s)
         # print(action)
         action = np.expand_dims(action, axis=0)
         # print(action)
         for i in range(self.a_dim):
-
             # if s[0,i] <= 0.4 and action[0,i] == 1 and np.random.uniform() <= EPSILON:
             if s[0,i] == 0 and np.random.uniform()<EPSILON and action[0,i] > 0.5:
                 action[0,i] = 0
+        for i in range(self.a_dim):
+            if s[0,i] == 1:
+                action[0,i] = 1
+                if i <= self.a_dim-2 and i>=1 and np.random.uniform()<0.3:
+                    action[0,i+1] = 1     
+                    action[0,i-1] = 1
         action = torch.from_numpy(action)
         return action
 
@@ -116,11 +164,15 @@ class DDPG_withLSTM(object):
 
         indices = np.random.choice(MEMORY_CAPACITY, size = BATCH_SIZE)
         bt = self.memory[indices, :]
+        if use_gpu:
+            bt = bt.cuda()
         bs = torch.FloatTensor(bt[:, 0: self.s_dim]).unsqueeze(0)
         ba = torch.FloatTensor(bt[:, self.s_dim: self.s_dim+self.a_dim])
         br = torch.FloatTensor(bt[:, self.s_dim+self.a_dim: self.s_dim+self.a_dim+1])
         bs_ = torch.FloatTensor(bt[:, -self.s_dim:]).unsqueeze(0)
 
+        # print(bs)
+        # print(list(bs.size()))
         a = self.Actor_eval(bs)
         q = self.Critic_eval(bs, a)
 
