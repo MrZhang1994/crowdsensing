@@ -1,4 +1,8 @@
 This is the archive containing solution to hierarchy_determination
+
+## Server attributions updated
+Server attributions are 2 dimensional now.
+
 # First complete draft updated
 ## Project hierachy
 ``` 
