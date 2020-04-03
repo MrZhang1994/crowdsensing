@@ -24,7 +24,8 @@ using namespace std;
 #define HP2 0
 #define HP3 4
 #define HP4 2
-#define HP5 0.6
+#define HP5 0.9
+#define MAX_ATTR_LOG 8                  // Maximum number of  server attributions to be logged
 
 // Output options
 #define show_cluster_results
@@ -179,6 +180,8 @@ void log_servers(vector<vector<server_t>> servers, ofstream &outFile, string sep
                 else
                     out = out + to_string(s.weight[k]) + "]";
             }
+            out = out + seperator;
+            /*
             out = out + seperator + "[";
             for (int k = 0; k < ATTR_SIZE; k++)
             {
@@ -186,7 +189,21 @@ void log_servers(vector<vector<server_t>> servers, ofstream &outFile, string sep
                     out = out + to_string(s.attr[k]) + " ";
                 else
                     out = out + to_string(s.attr[k]) + "]";
+            }*/
+            for (size_t k = 0; k < s.attr.size() && k < MAX_ATTR_LOG; k++)
+            {
+                out = out + "[";
+                for (size_t kk = 0; kk < s.attr[k].size(); kk++)
+                {
+                    if (kk < s.attr[k].size()-1)
+                        out = out + to_string(s.attr[k][kk]) + " ";
+                    else
+                        out = out + to_string(s.attr[k][kk]) + "]";
+                }
+                if (k < s.attr.size()-1)
+                    out = out + " ";
             }
+
             out = out + seperator + "[";
             for (size_t k = 0; k < s.lower_neighbours.size(); k++)
             {
@@ -457,6 +474,7 @@ void hsd()
         outFile << "Delay: " << eval_results[eval_results.size()-1].second.total_delay << endl;
         outFile << "TransCost: " << eval_results[eval_results.size()-1].second.total_transCost << endl;
         outFile << "AttrTrans: " << eval_results[eval_results.size()-1].second.attrTrans << endl;
+        outFile << "NumFailures:" << eval_results[eval_results.size()-1].second.num_failure << endl;
     }
 
     int min_delay_config = 0;

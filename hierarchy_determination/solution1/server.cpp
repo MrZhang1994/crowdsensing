@@ -11,11 +11,11 @@ server_t::server_t(int layer, int area_size, int attr_size, int sensingArea, int
     this->sensingArea = sensingArea;
     this->capacity = capacity;
     this->weight.resize(attr_size);
-    this->attr.resize(attr_size);
+    //this->attr.resize(attr_size);
     this->area.resize(area_size);
     area.assign(area_size, 0);
     weight.assign(attr_size, 0);
-    attr.assign(attr_size, 0);
+    //attr.assign(attr_size, 0);
 
     if (layer == 1)
     {
