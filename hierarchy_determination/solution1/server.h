@@ -17,7 +17,8 @@ public:
     float utilization;              // [0,1]
     vector<bool> area;              // Sensing area
     vector<float> weight;           // Attribution weights
-    vector<bool> attr;              // Attributions
+    //vector<bool> attr;            // Attributions
+    vector<vector<bool>> attr;      // Attributions    
 
     // <Index of connected servers in lower layer, latency between 2 servers>
     vector<pair<int, int>> lower_neighbours;   

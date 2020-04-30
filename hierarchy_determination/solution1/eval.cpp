@@ -22,11 +22,7 @@ static bool has_intersection(vector<bool> v1, vector<bool> v2)
 // Append attributions (server & task)
 static void append_attr(server_t &server, const task_t &task)
 {
-    for (size_t i = 0; i < task.attr.size(); i++)
-    {
-        if (task.attr[i] == true)
-            server.attr[i] = true;
-    }
+    server.attr.push_back(task.attr);
 }
 
 // Append attributions (server & server)
@@ -34,9 +30,20 @@ static void append_attr(server_t &target, server_t &source)
 {
     for (size_t i = 0; i < source.attr.size(); i++)
     {
-        if (source.attr[i] == true)
-            target.attr[i] = true;
+        target.attr.push_back(source.attr[i]);
     }
+}
+
+// Append attributions (random)
+static void append_attr(server_t &target)
+{
+    vector<bool> tmp;
+    tmp.resize(target.weight.size());
+    for (size_t i = 0; i < tmp.size(); i++)
+    {
+        tmp[i] = lrand48()%2;
+    }
+    target.attr.push_back(tmp);
 }
 
 // Returns number of ones in the vector
@@ -119,12 +126,10 @@ int systemInit(float HP4, vector<vector<server_t>> &servers, vector<task_t> &tas
     // Generate remaining attribution of each server
     for (size_t eachServer = 0; eachServer < servers[0].size(); eachServer++)
     {
-        while ( num_ones(servers[0][eachServer].attr) <= 
-            ((float)taskList.size()*HP4/(float)servers[0].size()) 
-            && num_ones(servers[0][eachServer].attr) < (int)servers[0][eachServer].attr.size())
+        while (   servers[0][eachServer].attr.size() <= 
+            ((float)taskList.size()*HP4/(float)servers[0].size())   )
         {
-            int index = lrand48()%servers[0][eachServer].attr.size();
-            servers[0][eachServer].attr[index] = true;
+            append_attr(servers[0][eachServer]);   
         }
     }
 
@@ -139,12 +144,14 @@ int systemInit(float HP4, vector<vector<server_t>> &servers, vector<task_t> &tas
                 if (is_connected(servers[layer][eachServer], lowerServer) == true)
                 {
                     append_attr(servers[layer][eachServer], servers[layer-1][lowerServer]);
+
                     int index1 = index_lower_neighbour(servers[layer][eachServer], lowerServer);
                     int index2 = index_upper_neighbour(servers[layer-1][lowerServer], eachServer);
-                    int tmp = lrand48()%10;
+                    int tmp = lrand48()%10;     // latency
                     servers[layer][eachServer].lower_neighbours[index1].second = tmp;
                     servers[layer-1][lowerServer].upper_neighbours[index2].second = tmp;
-                    attrTrans = attrTrans + num_ones(servers[layer-1][lowerServer].attr) *
+                    
+                    attrTrans = attrTrans + servers[layer][eachServer].attr.size() *
                         num_ones(servers[layer][eachServer].weight);
                 }
             }
@@ -263,17 +270,20 @@ void dispatcher(task_t &task, vector<vector<server_t>> &servers)
 // matcher 
 bool matcher(const task_t &task, const server_t &server, float HP5)
 {
-    //cout << "Matcher" << endl;
-    float sim = 0;
-    for (size_t eachBit = 0; eachBit < task.weight.size(); eachBit++)
+    bool matchFlag = 0;
+    for (size_t eachAttr = 1; eachAttr < server.attr.size(); eachAttr++)
     {
-        if (server.weight[eachBit] == 1 && task.attr[eachBit] == server.attr[eachBit])
+        float sim = 0;
+        for (size_t eachBit = 0; eachBit < task.weight.size(); eachBit++)
         {
-            sim = sim + task.weight[eachBit];
-            if (sim >= HP5)
-                return true;
+            if (server.weight[eachBit] == 1 && task.attr[eachBit] == server.attr[eachAttr][eachBit])
+                sim = sim + task.weight[eachBit];
+        }
+        if (sim >= HP5)
+        {
+            matchFlag = 1;
+            break;
         }
     }
-    //cout << "SIM: " << sim << endl;
-    return false;
+    return matchFlag;
 }
