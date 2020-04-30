@@ -25,15 +25,22 @@ class Car:
         self.start = t
         self.stoptime = int(arr[-1][2])
         self.pos = arr[0][0:2]
+        
+        self.INDE = -1
         self.distance = 99999
         self.delay = 99999
-        self.INDE = -1
 
-    def update(self, t, dict_L1_INDE_cell, rho, list_INDE_object):
+        self.closest_INDE = -1
+        self.closest_distance = 99999
+
+        
+
+    def update(self, t, dict_L1_INDE_cell, rho, list_INDE_object, INDE_cell):
         self.pos = self.arr[t-self.start][0:2]
         if self.INDE != -1:
             list_INDE_object[self.INDE].L1_disconnect_Car(self.id)
-        self.update_INDE(dict_L1_INDE_cell, rho, list_INDE_object)
+            self.distance = np.sqrt(np.square(self.pos[0]-list_INDE_object[self.INDE].pos[0])+np.square(self.pos[1]-list_INDE_object[self.INDE].pos[1]))
+        self.update_INDE(dict_L1_INDE_cell, rho, list_INDE_object, INDE_cell)
         if self.INDE != -1:
             list_INDE_object[self.INDE].L1_connect_Car(self.id)
 
@@ -41,59 +48,68 @@ class Car:
         if INDE_id == -1:
             self.delay = 99999
         else:
-            if list_INDE_object[INDE_id].INDEtype == 0: # a INDE INDE
-                access_delay = 10
+            self.distance = np.sqrt(np.square(self.pos[0]-list_INDE_object[INDE_id].pos[0])+np.square(self.pos[1]-list_INDE_object[INDE_id].pos[1]))
+            if list_INDE_object[INDE_id].INDEtype == 0: # a BS INDE
+                access_delay = 20*(1-1/(self.distance+1))
                 x = int(600*list_INDE_object[INDE_id].pos[0]/10000)
                 y = int(600*list_INDE_object[INDE_id].pos[1]/10000)
                 queuing_delay = MAX_QUEUING_TIME*rho[x][y]
                 self.delay = access_delay+queuing_delay
             else: # a car INDE
-                self.distance = np.sqrt(np.square(self.pos[0]-list_INDE_object[INDE_id].pos[0])+np.square(self.pos[1]-list_INDE_object[INDE_id].pos[1]))
                 if self.distance <= 400:
                     self.delay = 5
                 else:
                     self.delay = 400
 
-    def update_INDE(self, dict_L1_INDE_cell, rho, list_INDE_object):
-        cell_number = 10*int(self.pos[0]/1000)+int(self.pos[1]/1000)
+    def update_INDE(self, dict_L1_INDE_cell, rho, list_INDE_object, INDE_cell):
+        x = int(self.pos[0]/1000)
+        y = int(self.pos[1]/1000)
         
-        self.find_closest_INDE(cell_number, dict_L1_INDE_cell, list_INDE_object)
-        # if self.find_closest_INDE(cell_number, dict_L1_INDE_cell, list_INDE_object) == 1:
-        #     pass
-        # else:
-        #     if cell_number%10 == 0:
-        #         self.find_closest_INDE(cell_number+1, dict_L1_INDE_cell, list_INDE_object)
-        #     elif cell_number%10 == 9:
-        #         self.find_closest_INDE(cell_number-1, dict_L1_INDE_cell, list_INDE_object)
-        #     else:
-        #         self.find_closest_INDE(cell_number+1, dict_L1_INDE_cell, list_INDE_object)
-        #         self.find_closest_INDE(cell_number-1, dict_L1_INDE_cell, list_INDE_object)
-
-        #     if int(cell_number/10) == 0:
-        #         self.find_closest_INDE(cell_number+10, dict_L1_INDE_cell, list_INDE_object)
-        #     elif int(cell_number/10) == 9:
-        #         self.find_closest_INDE(cell_number-10, dict_L1_INDE_cell, list_INDE_object)
-        #     else:
-        #         self.find_closest_INDE(cell_number+10, dict_L1_INDE_cell, list_INDE_object)
-        #         self.find_closest_INDE(cell_number-10, dict_L1_INDE_cell, list_INDE_object)
+        
+        for xx in range(x-1,x+2):
+            for yy in range(y-1,y+2):
+                if xx in range(10) and yy in range(10):
+                    cell_number = 10*xx+yy
+                    self.find_available_INDE(cell_number, dict_L1_INDE_cell, list_INDE_object)
 
         self.calculate_delay(self.INDE, rho, list_INDE_object)
+        # self.find_closest_INDE(list_INDE_object, INDE_cell)
 
-    def find_closest_INDE(self, cell_number, dict_L1_INDE_cell, list_INDE_object):
+
+    def find_available_INDE(self, cell_number, dict_L1_INDE_cell, list_INDE_object):
         if dict_L1_INDE_cell[cell_number]:
             # self.INDE = choice(dict_L1_INDE_cell[cell_number])
             for i in range(len(dict_L1_INDE_cell[cell_number])):
                 pos0 = list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].pos[0]
                 pos1 = list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].pos[1]
-                new_distance = np.sqrt(np.square(self.pos[0]-pos0)+np.square(self.pos[1]-pos1))
-                # if new_distance < self.distance and list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].L1_report_loadrate()<1:
-                if new_distance < self.distance:
-                    self.INDE = (dict_L1_INDE_cell[cell_number])[i]
-                    self.distance = new_distance
+                if self.pos[0]-pos0<self.distance and self.pos[1]-pos1<self.distance:              
+                    new_distance = np.sqrt(np.square(self.pos[0]-pos0)+np.square(self.pos[1]-pos1))
+                    if new_distance < self.distance and list_INDE_object[((dict_L1_INDE_cell[cell_number])[i])].L1_report_loadrate()<1:
+                        self.INDE = (dict_L1_INDE_cell[cell_number])[i]
+                        self.distance = new_distance
+                else:
+                    continue
             return 1
         else:
             # self.INDE = -1
             return 0
+
+    def find_closest_INDE(self, list_INDE_object, INDE_cell):
+        x = int(self.pos[0]/1000)
+        y = int(self.pos[1]/1000)
+        for xx in range(x-1,x+2):
+            for yy in range(y-1,y+2):
+                if xx in range(10) and yy in range(10):
+                    for j in range(len(INDE_cell[xx*10+yy])):
+                        other_INDE_id = (INDE_cell[xx*10+yy])[j]
+                        if self.pos[0]-list_INDE_object[other_INDE_id].pos[0]<self.closest_distance and self.pos[1]-list_INDE_object[other_INDE_id].pos[1]<self.closest_distance:
+                            distance = np.sqrt(np.square(self.pos[0]-list_INDE_object[other_INDE_id].pos[0])+np.square(self.pos[1]-list_INDE_object[other_INDE_id].pos[1]))
+                            if distance<self.closest_distance:
+                                self.closest_INDE = other_INDE_id
+                                self.closest_distance = distance
+                        else:
+                            continue
+
 
 class INDE:
     def __init__(self, ID, INDEtype, arr):
@@ -107,6 +123,9 @@ class INDE:
             self.pos = arr[0][:]
         self.timestamp = 0
         self.arrlen = len(self.arr)
+        self.neighbor = np.zeros((10,2))
+        for i in range(10):
+            self.neighbor[i,1] = 9999999
 
         # L1 software attribute
         self.L1_state = 0
@@ -240,7 +259,7 @@ class INDE:
 
 
 
-    def Render(self):
+    def Reset(self):
         # L1 software attribute
         # self.L1_state = 0
         self.L1_connecting_car_list = []
@@ -257,26 +276,31 @@ class Env:
     '''
     about the envornment
     '''
-    def __init__(self, Date):
+    def __init__(self, Date, path):
         '''initializing'''
-        self.INDE_pos = np.loadtxt(config.preprocessed_data_Location+'bt_inside_1910.txt')
-        self.rho = np.loadtxt(config.preprocessed_data_Location+'rho.txt')
+        self.Date = Date
         f = open('preprocessed_data/dict_Car/dict_Car_'+str(Date)+'.txt','r')
         a = f.read()
         self.dict_Car = eval(a)
         f.close()
+        del a
+        self.INDE_pos = np.loadtxt(config.preprocessed_data_Location+'bt_inside_1910.txt')
+        self.rho = np.loadtxt(config.preprocessed_data_Location+'rho.txt')
+
+
 
         f = open('preprocessed_data/dict_Car/dict_Car_'+str(Date)+'_TimeIndex.txt','r')
         a = f.read()
         self.dict_Car_TimeIndex = eval(a)
         f.close()        
+        del a
 
         f = open(config.preprocessed_data_Location+'dict_INDECar.txt','r')
         a = f.read()
         self.dict_IDNECar = eval(a)
         f.close()
-
         del a
+
         '''
         some list
         '''
@@ -301,6 +325,9 @@ class Env:
         for i in range(len(self.INDE_pos)):
             self.list_INDE_object.append(INDE(tempid, 0, self.INDE_pos[i,:]))
             tempid += 1
+        self.INDE_cell = {}
+
+        self.find_neighbor()
         # for key in self.dict_IDNECar:
         #     self.list_INDE_object.append(INDE(tempid, 1, self.dict_IDNECar[key]))
         #     tempid += 1
@@ -308,6 +335,7 @@ class Env:
         if PictureType != -1:
             plt.ion()
 
+        self.result_path = path
 
     def update(self, a, a_last, i_p, t):
         '''
@@ -324,13 +352,14 @@ class Env:
         # add new car to the environment
         if t in list(self.dict_Car_TimeIndex.keys()):
             for i in range(len(self.dict_Car_TimeIndex[t])):
-                self.dict_existing_car.update({self.car_counter:Car(self.car_counter, t, self.dict_Car[self.dict_Car_TimeIndex[t][i]])})
-                self.car_counter = self.car_counter+1
+                if Ellipsis not in self.dict_Car[self.dict_Car_TimeIndex[t][i]]:
+                    self.dict_existing_car.update({self.car_counter:Car(self.car_counter, t, self.dict_Car[self.dict_Car_TimeIndex[t][i]])})
+                    self.car_counter = self.car_counter+1
 
         # cars update their position and maybe find a new INDE
 
         for key in self.dict_existing_car:
-            self.dict_existing_car[key].update(t, self.dict_L1_INDE_cell, self.rho, self.list_INDE_object)
+            self.dict_existing_car[key].update(t, self.dict_L1_INDE_cell, self.rho, self.list_INDE_object, self.INDE_cell)
 
         # calculate load rate and create system log
         '''
@@ -339,6 +368,7 @@ class Env:
         PrintLogType = 2 means print open INDE
         '''
         self.Print_L1_Car_Log(t, PrintLogType)
+        # Car_place_Info = self.Calculate_Car_place_Info()
 
         # del cars
         for key in list(self.dict_existing_car.keys()):
@@ -359,8 +389,91 @@ class Env:
         #     else:
         #         single_reward[i] = -self.load_rate[i]*self.load_rate[i]+self.load_rate[i]+1
 
-        return np.vstack((self.load_rate, np.array([[t]])))
-        # return self.load_rate
+        # return np.vstack((self.load_rate, np.array([[t]])))
+        return self.load_rate
+
+    def update_only(self, a, a_last, i_p, t):
+        '''
+        an updation through time
+        '''
+        # update INDEs' openning state through action a
+        for i in range(len(self.list_INDE_object)):
+            self.list_INDE_object[i].INDE_pos_update(self.dict_L1_INDE_cell)
+            if a[i] == 1 and a_last[i] == 0:
+                self.list_INDE_object[i].L1_open(self.list_open_L1_INDE, self.dict_L1_INDE_cell)
+            elif a[i] == 0 and a_last[i] == 1:
+                self.list_INDE_object[i].L1_close(self.list_open_L1_INDE, self.dict_L1_INDE_cell, self.dict_existing_car)
+
+        # add new car to the environment
+        if t in list(self.dict_Car_TimeIndex.keys()):
+            for i in range(len(self.dict_Car_TimeIndex[t])):
+                if Ellipsis not in self.dict_Car[self.dict_Car_TimeIndex[t][i]]:
+                    self.dict_existing_car.update({self.car_counter:Car(self.car_counter, t, self.dict_Car[self.dict_Car_TimeIndex[t][i]])})
+                    self.car_counter = self.car_counter+1
+
+        # cars update their position and maybe find a new INDE
+
+        for key in self.dict_existing_car:
+            self.dict_existing_car[key].update(t, self.dict_L1_INDE_cell, self.rho, self.list_INDE_object, self.INDE_cell)
+
+        self.Print_L1_Car_Log(t, -1)
+
+        # del cars
+        for key in list(self.dict_existing_car.keys()):
+            # if t == self.dict_existing_car[key].arr[-1,2]:
+            if t == self.dict_existing_car[key].stoptime:
+                if self.dict_existing_car[key].INDE != -1:
+                    self.list_INDE_object[self.dict_existing_car[key].INDE].L1_disconnect_Car(key)
+                del self.dict_existing_car[key]
+
+        return self.load_rate
+
+
+
+    def find_neighbor(self):
+        for i in range(0,100):
+                self.INDE_cell.update({i:[]})
+
+        for i in range(len(self.list_INDE_object)):
+            x = int(self.list_INDE_object[i].pos[0]/1000)
+            y = int(self.list_INDE_object[i].pos[1]/1000)
+            self.INDE_cell[x*10+y].append(i)
+
+        for i in range(len(self.list_INDE_object)):
+            x = int(self.list_INDE_object[i].pos[0]/1000)
+            y = int(self.list_INDE_object[i].pos[1]/1000)
+            for xx in range(x-1,x+2):
+                for yy in range(y-1,y+2):
+                    if xx in range(10) and yy in range(10):
+                        for j in range(len(self.INDE_cell[xx*10+yy])):
+                            other_INDE_id = (self.INDE_cell[xx*10+yy])[j]
+                            if other_INDE_id != i:
+                                distance = np.sqrt(np.square(self.list_INDE_object[i].pos[0]-self.list_INDE_object[other_INDE_id].pos[0])+np.square(self.list_INDE_object[i].pos[1]-self.list_INDE_object[other_INDE_id].pos[1]))
+                                tag = 10
+                                for k in range(9,-1,-1):
+                                    if distance < self.list_INDE_object[i].neighbor[k,1]:
+                                        tag = k
+                                if tag != 10:
+                                    if tag == 9:
+                                        self.list_INDE_object[i].neighbor[tag,0] = other_INDE_id
+                                        self.list_INDE_object[i].neighbor[tag,1] = distance
+                                    else:
+                                        for k in range(9,tag,-1):
+                                            self.list_INDE_object[i].neighbor[k,0] = self.list_INDE_object[i].neighbor[k-1,0]
+                                            self.list_INDE_object[i].neighbor[k,1] = self.list_INDE_object[i].neighbor[k-1,1] 
+                                        self.list_INDE_object[i].neighbor[tag,0] = other_INDE_id
+                                        self.list_INDE_object[i].neighbor[tag,1] = distance
+
+    def Calculate_Car_place_Info(self):
+        Car_place_Info = np.zeros((a_dim, 1))
+
+        for key in self.dict_existing_car.keys():
+            Car_place_Info[self.dict_existing_car[key].closest_INDE] += 1
+
+        return Car_place_Info
+
+
+
 
     def Print_L1_Car_Log(self, t, PrintLogType):
         '''
@@ -372,16 +485,16 @@ class Env:
         '''
         if PrintLogType != -1:
             if t == 0:
-                f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'w')
+                f = open(self.result_path+'/'+config.LogLocation+str(self.Date)+'_log'+str(PrintLogType)+'.txt', 'w')
             else:
-                f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                f = open(self.result_path+'/'+config.LogLocation+str(self.Date)+'_log'+str(PrintLogType)+'.txt', 'a')
             f.write('================================ t = '+str(t)+' =======================================\n'+'\n')
             f.close()
             if PrintLogType == 0:
                 for i in range(len(self.list_INDE_object)):
                     self.load_rate[i] = self.list_INDE_object[i].L1_report_loadrate()
                     # create system log
-                    f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                    f = open(self.result_path+'/'+config.LogLocation+str(self.Date)+'_log'+str(PrintLogType)+'.txt', 'a')
                     log = 'INDE='+str(i)+'||state='+str(self.list_INDE_object[i].L1_state)+'||'
                     log += 'INDEtype='+str(self.list_INDE_object[i].INDEtype)+'||'
                     log += 'loadrate='+str(self.load_rate[i])+'||'
@@ -403,7 +516,7 @@ class Env:
                     self.load_rate[i] = self.list_INDE_object[i].L1_report_loadrate()
                     # create system log
                     if len(self.list_INDE_object[i].L1_connecting_car_list) != 0:
-                        f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                        f = open(self.result_path+'/'+config.LogLocation+str(self.Date)+'_log'+str(PrintLogType)+'.txt', 'a')
                         log = 'INDE='+str(i)+'||state='+str(self.list_INDE_object[i].L1_state)+'||'
                         log += 'INDEtype='+str(self.list_INDE_object[i].INDEtype)+'||'
                         log += 'loadrate='+str(self.load_rate[i])+'||'
@@ -425,7 +538,7 @@ class Env:
                     self.load_rate[i] = self.list_INDE_object[i].L1_report_loadrate()
                     # create system log
                     if self.list_INDE_object[i].L1_state != 0:
-                        f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+                        f = open(self.result_path+'/'+config.LogLocation+str(self.Date)+'_log'+str(PrintLogType)+'.txt', 'a')
                         log = 'INDE='+str(i)+'||state='+str(self.list_INDE_object[i].L1_state)+'||'
                         log += 'INDEtype='+str(self.list_INDE_object[i].INDEtype)+'||'
                         log += 'loadrate='+str(self.load_rate[i])+'||'
@@ -442,7 +555,7 @@ class Env:
                                 f.write(log)
                         f.write('\n')          
                         f.close()
-            f = open(config.result_Location+config.LogLocation+'log'+str(PrintLogType)+'.txt', 'a')
+            f = open(self.result_path+'/'+config.LogLocation+str(self.Date)+'_log'+str(PrintLogType)+'.txt', 'a')
             f.write('Cars that dont have a INDE:'+'\n')
             for key in list(self.dict_existing_car.keys()):
                 if self.dict_existing_car[key].INDE == -1:
@@ -478,10 +591,10 @@ class Env:
             plt.xlim(0, 10000)
             plt.ylim(0, 10000)
             if PictureType == 0:
-                plt.savefig(config.result_Location+'result_images/'+str(i_p)+'_'+str(t)+'.png')
+                plt.savefig(self.result_path+'/'+'result_images/'+str(self.Date)+'_'+str(i_p)+'_'+str(t)+'.png')
             elif PictureType == 1:
                 plt.show()
-                plt.savefig(config.result_Location+'result_images/'+str(i_p)+'_'+str(t)+'.png')
+                plt.savefig(self.result_path+'/'+'result_images/'+str(self.Date)+'_'+str(i_p)+'_'+str(t)+'.png')
                 plt.pause(0.05)
                 # plt.ioff()
             elif PictureType ==2 :
@@ -515,11 +628,16 @@ class Env:
     def Get_L1_Car_Num(self):
         return [len(self.dict_existing_car), len(self.list_open_L1_INDE)]
 
-
-
-    def Render(self):
+    def Report_open_close(self):
+        open_state = np.zeros((len(self.list_INDE_object),))
         for i in range(len(self.list_INDE_object)):
-            self.list_INDE_object[i].Render()
+            open_state[i] = self.list_INDE_object[i].L1_state
+        return open_state
+
+
+    def Reset(self):
+        for i in range(len(self.list_INDE_object)):
+            self.list_INDE_object[i].Reset()
 
         self.dict_existing_car = {}
         self.car_counter = 0 # a numbering counter
@@ -528,7 +646,7 @@ class Env:
 
     def Restart_With_A_New_Day(self, Date):
         for i in range(len(self.list_INDE_object)):
-            self.list_INDE_object[i].Render()
+            self.list_INDE_object[i].Reset()
         self.dict_existing_car = {}
         self.car_counter = 0 # a numbering counter
 
@@ -541,3 +659,4 @@ class Env:
         a = f.read()
         self.dict_Car_TimeIndex = eval(a)
         f.close()           
+

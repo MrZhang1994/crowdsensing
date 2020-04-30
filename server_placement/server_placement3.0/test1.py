@@ -105,7 +105,8 @@ for i_episode in range(MAX_EPISODES):
     # conv_rate.reset(Date, path)
 
     for t in range(1, SLOTNUM):
-
+        # if t%100 == 0:
+        #     print(t)
         # if i_episode == 0 and SLOTNUM>=50:
         #     continue
         # if i_episode == 0 and t<256:
@@ -157,9 +158,10 @@ for i_episode in range(MAX_EPISODES):
         # adapt_speed.store_action(t, a)
 
         r = np.array([r])
-        ddpg.store_transition(s, a_t, r, s_)
+        if ddpg.pointer <= MEMORY_CAPACITY:
+            ddpg.store_transition(s, a_t, r, s_)
         # if ddpg.pointer > MEMORY_CAPACITY and ddpg.pointer%128==0:
-        if ddpg.pointer > MEMORY_CAPACITY:
+        else:
             loss_a, td_error = ddpg.learn1()
 
             work_line = work_line+1

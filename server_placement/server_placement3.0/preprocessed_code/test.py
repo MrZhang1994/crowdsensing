@@ -1,117 +1,50 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import pandas as pd
-from numpy import array as array
-import sys
-import csv
-import gc
-
-gc.disable();
-maxInt = sys.maxsize
-
-while True:
-    # decrease the maxInt value by factor 10 
-    # as long as the OverflowError occurs.
-
-    try:
-        csv.field_size_limit(maxInt)
-        break
-    except OverflowError:
-        maxInt = int(maxInt/10)
-
-BLOCK_SIZE = 5000
+import seaborn as sns
+# import pandas as pd
 L = 10000
-INTERVAL = 20
-
-#
+SAMPLE = 5
 max0 = 104.1223
 min0 = 104.04211
 max1 = 30.70454
 min1 = 30.65283
 
-# when BLOCK_SIZE = 5000,min_time is 1541172676.0
-min_time = 1538316145.0
+bt = np.loadtxt('../../data/chengdu_bt.txt')
 
-FileName = '../../data/chengdushi_1001_1010.csv'
-CHUNK_SIZE = 1000
+# plt.figure(1)
+# plt.scatter(bt[:,0], bt[:, 1], marker = '.')
+# plt.show()
 
-
-dict_Car_1 = {}
-dict_Car_2 = {}
-dict_Car_3 = {}
-dict_Car_4 = {}
-dict_Car_5 = {}
-dict_Car_6 = {}
-dict_Car_7 = {}
-dict_Car_8 = {}
-dict_Car_9 = {}
-dict_Car_10 = {}
-
+print(bt.shape)
 count = 0
-counter = 0
-# min_time = 999999999999999999
-record_ID = 0
+for i in range(len(bt)):
+    if bt[i][0]>=min0 and bt[i][0]<=max0 and bt[i][1]>=min1 and bt[i][1]<=max1 and i%SAMPLE==0:
+        count = count+1;
+print(count)
+bt_inside = np.zeros((count,2))
+count = 0
+temp = 0
+for i in range(len(bt)):
+    if bt[i][0]>=min0 and bt[i][0]<=max0 and bt[i][1]>=min1 and bt[i][1]<=max1 and i%SAMPLE==0:
+        bt_inside[count][0] = L*(bt[i][0]-min0)/(max0-min0)
+        bt_inside[count][1] = L*(bt[i][1]-min1)/(max1-min1)
+        count = count+1;
 
-chunker = pd.read_csv( FileName, chunksize = CHUNK_SIZE, usecols=[2], engine = 'python')
-# print("read successfully!")
-# print(chunker)
-num = 1 #记录读取轮数
+Grid_len = 20
 
-for chunk in chunker:
-    print(num)
-    num += 1
-    chunk = chunk.values.tolist()
-    for i in range(CHUNK_SIZE):
-        piece = chunk[i][0]
-        piece = piece[1:len(piece)-1]
-        list1 = piece.split(',')
-        for i in range(len(list1)):
-            list1[i] = list1[i].split()
-            for j in range(len(list1[i])):
-                list1[i][j] = float(list1[i][j])
-        if list1[0][2] < min_time:
-            continue
-        arr = np.array(list1)
-        # print(arr)
+heat = np.zeros((Grid_len,Grid_len))
+for i in range(len(bt_inside)):
+    x = int(bt_inside[i][1]*Grid_len/10000)
+    y = int(bt_inside[i][0]*Grid_len/10000)
+    heat[x,y] += 1
 
-        # for i in range(len(list1)):
-        #     list1[i] = list1[i].split()
+heatmap = sns.heatmap(heat)
+plt.show()
 
-        # mtime = float(list1[0][2])
-        # # print(mtime)
-        # if mtime<min_time:
-        #     min_time = mtime
-        #     record_ID = count
-        #     print('min_time = '+str(min_time))
-        #     print('record_ID = '+str(record_ID))
-        # if mtime < 1538316145:
-        #     counter = counter+1
-    # # print(arr[0])
-        if arr[:,0].max()>=max0 or arr[:,0].min()<=min0 or arr[:,1].max()>=max1 or arr[:,1].min()<=min1:
-            continue
+plt.figure(1)
+plt.scatter(bt_inside[:,0], bt_inside[:,1], marker = '.')
+plt.show()
 
-        arr_sorted = []
-        valid_len = 1
-        for i in range(len(arr)):
-            if i == 0:
-                arr_sorted.append([L*(arr[i,0]-min0)/(max0-min0), L*(arr[i,1]-min1)/(max1-min1), int((arr[i,2]-min_time)/INTERVAL)])
-            elif int((arr[i,2]-min_time)/INTERVAL) != arr_sorted[-1][2]:
-                arr_sorted.append([L*(arr[i,0]-min0)/(max0-min0), L*(arr[i,1]-min1)/(max1-min1), int((arr[i,2]-min_time)/INTERVAL)])
-            else:
-                pass
-        arr_sorted = np.array(arr_sorted)
-        dict_Car.update({count:arr_sorted})
-        count = count+1 
-        if count>5:
-            break   
-
-    if num > 1:
-        break
-
-print(dict_Car)
-gc.enable();
-
-# print("begin data store!")
-# f = open('../preprocessed_data/dict_Car.txt','w')
-# f.write(str(dict_Car))
-# f.close()
+# del bt
+# print(count)
+# np.savetxt('../preprocessed_data/bt_inside_'+str(count)+'.txt',bt_inside)

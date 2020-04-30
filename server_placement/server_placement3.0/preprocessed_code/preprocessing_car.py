@@ -30,7 +30,7 @@ max1 = 30.70454
 min1 = 30.65283
 
 
-min_time = 1538316145.0
+min_time = 1538336145.0
 
 FileName = '../../data/chengdushi_1001_1010.csv'
 CHUNK_SIZE = 1000
@@ -93,7 +93,9 @@ for chunk in chunker:
             else:
                 pass
         arr_sorted = np.array(arr_sorted)
-
+        # if Ellipsis in arr_sorted:
+        #     print(arr_sorted)
+        #     continue
         if int(arr_sorted[0][2]/4320) <= 9:
             dict_Car[int(arr_sorted[0][2]/4320)].update({count:arr_sorted})
             count = count+1 
@@ -101,7 +103,7 @@ for chunk in chunker:
         # if count>5:
         #     break   
 
-    if num > 500:
+    if num > 1000:
         break
 
 # print(dict_Car)

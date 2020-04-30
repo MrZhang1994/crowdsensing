@@ -30,27 +30,39 @@ class ANet(nn.Module):
         self.out = nn.Linear(100, a_dim)
         self.out.weight.data.normal_(0, 0.1)        
 
+
+class ANet(nn.Module):
+    def __init__(self, s_dim, a_dim):
+        super(Actor, self).__init__()
+        self.fc1 = nn.Linear(s_dim, 100)
+        self.fc1.weight.data.normal_(0, 0.1)
+        self.out = nn.Linear(100, a_dim)
+        self.out.weight.data.normal_(0, 0.1)  
+
     def forward(self, x):
-        # print(x)
-        # print(x)
+        x = F.relu(self.fc1(x))
+        action_prob = F.softmax(self.out(x), dim=1)
+        return action_prob
+
+    def forward(self, s):
+
+        x = s.permute(1,0,2)
+        x = self.conv1(x)
+        x = F.relu(x)
         x = x.permute(1,0,2)
-        x0 = self.conv1(x)
-        x0 = x0.permute(1,0,2)
-        x1 = self.fc1(x0)
-        x2 = F.relu(x1)
-        # print(x2)
-        # print(self.rnn(x2))
-        # output,(h_n, c_n) = self.rnn(x2)
-        # x3 = h_n[-1,:,:]
-        x4 = self.out(x2)
-        x5 = F.relu(x4)
-        action_value = x5*2
+        x = self.fc1(x)
+        x = F.relu(x)
+
+        x = self.out(x)
+        x = F.relu(x)
+        action_value = x*2
         return action_value
 
 class CNet(nn.Module):
     def __init__(self, s_dim, a_dim):
         super(CNet, self).__init__()
-        self.fcs = nn.Linear(s_dim, 100)
+        self.conv1 = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=5)
+        self.fcs = nn.Linear(s_dim-5+1, 100)
         self.fcs.weight.data.normal_(0, 0.1)
         self.fca = nn.Linear(a_dim, 100)
         self.fca.weight.data.normal_(0, 0.1)
@@ -58,19 +70,24 @@ class CNet(nn.Module):
         self.out.weight.data.normal_(0, 0.1)
 
     def forward(self, s, a):
-        x = self.fcs(s)
+        x = s.permute(1,0,2)
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = x.permute(1,0,2)
+        x = self.fcs(x)
         y = self.fca(a)
         net = F.relu(x+y)
         actions_value = self.out(net)
         return actions_value
 
-class DDPG_withLSTM(object):
+class PDDPG(object):
     def __init__(self, a_dim, s_dim):
         self.a_dim = a_dim
         self.s_dim = s_dim
 
         self.memory = np.zeros((MEMORY_CAPACITY, 2*s_dim+a_dim+1))
         self.pointer = 0
+        self.learn_time = 0
 
         self.Actor_eval = ANet(s_dim, a_dim)
         self.Actor_target = ANet(s_dim, a_dim)
@@ -125,7 +142,22 @@ class DDPG_withLSTM(object):
             if s[0,i] == 0 and action[0,i] > 0.5 and np.random.uniform() <= EPSILON:
             # if s[0,i] == 0 and action[0,i] > 0.5:
                 action[0,i] = 0
- 
+        # if np.sum(a_last) == 0:
+        #     for i in range(self.a_dim):
+        #         if random.random()<0.2:
+        #             action[0,i] = 1
+        #         else:
+        #             action[0,i] = 0
+        # else:    
+        #     for i in range(self.a_dim):
+
+        #         if s[0,i] == 0 and action[0,i] > 0.5 and np.random.uniform() <= EPSILON:
+        #         # if s[0,i] == 0 and action[0,i] > 0.5:
+        #             action[0,i] = 0
+        # for i in range(self.a_dim):
+        #     if s[0,i] == 1 and i>=1 and np.random.uniform() <= EPSILON:
+        #     # if s[0,i] == 0 and action[0,i] > 0.5:
+        #         action[0,i-1] = 1 
         action = torch.from_numpy(action)
         return action
 
@@ -155,6 +187,13 @@ class DDPG_withLSTM(object):
         return action
 
     def learn(self):
+        if self.learn_time != 0 and self.learn_time%5 == 0:
+            for p_c in self.ctrain.param_groups:
+                p_c['lr'] *= 0.9
+            for p_a in self.atrain.param_groups:
+                p_a['lr'] *= 0.9
+        self.learn_time += 1
+        
         for x in self.Actor_target.state_dict().keys():
             eval('self.Actor_target.' + x + '.data.mul_((1-TAU))')
             eval('self.Actor_target.' + x + '.data.add_(TAU*self.Actor_eval.' + x + '.data)')
@@ -162,7 +201,7 @@ class DDPG_withLSTM(object):
             eval('self.Critic_target.' + x + '.data.mul_((1-TAU))')
             eval('self.Critic_target.' + x + '.data.add_(TAU*self.Critic_eval.' + x + '.data)') 
 
-        indices = np.random.choice(MEMORY_CAPACITY, size = BATCH_SIZE)
+        indices = np.random.choice(MEMORY_CAPACITY, size = BATCH_SIZE, replace=False, p=None)
         bt = self.memory[indices, :]
         if use_gpu:
             bt = bt.cuda()
@@ -189,6 +228,7 @@ class DDPG_withLSTM(object):
         self.ctrain.zero_grad()
         td_error.backward()
         self.ctrain.step()
+        return float(loss_a), float(td_error)
 
     def store_transition(self, s, a, r, s_):
         # print(s)

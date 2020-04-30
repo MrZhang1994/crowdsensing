@@ -1,9 +1,9 @@
 '''
 Parameters about DDPG
 '''
-MEMORY_CAPACITY = 1000
-LR_A = 0.01    # learning rate for actor
-LR_C = 0.001    # learning rate for critic
+MEMORY_CAPACITY = 4320
+LR_A = 0.0001    # learning rate for actor
+LR_C = 0.0003   # learning rate for critic
 # LR_A = 0.01    # learning rate for actor
 # LR_C = 0.02    # learning rate for critic
 GAMMA = 0.9     # reward discount
@@ -16,7 +16,7 @@ Parameters about environment
 '''
 L = 30 # the numbers of rows and columns
 MAX_QUEUING_TIME = 1000
-L1_INDE_CAPACITY = 10 # how many cars one INDE can serve 
+L1_INDE_CAPACITY = 5 # how many cars one INDE can serve 
 L2_INDE_CAPACITY = 10
 Bt_INDE_num = 1910
 
@@ -32,7 +32,7 @@ PictureType = 0
 action and state
 '''
 a_dim = 1910
-s_dim = 1911
+s_dim = 1910
 
 
 '''
@@ -57,5 +57,4 @@ OMEGA = 1 # means the punishment of centent loss
 
 # Location
 LogLocation = 'log/'
-result_Location = 'result/'
 preprocessed_data_Location = 'preprocessed_data/'
